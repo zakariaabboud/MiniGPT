@@ -198,9 +198,7 @@ class GPT(nn.Module):
         # basically the openai checkpoints use a "Conv1D" module, but we only want to use a vanilla nn.Linear.
         # this means that we have to transpose these weights when we import them
         # assert len(keys) == len(sd)
-        print(len(keys), len(sd))
         for k in keys:
-            print(f"HF: {sd_hf[k].shape}, MiniGPT: {sd[k].shape}")
             if any(k.endswith(w) for w in transposed):
                 # special treatment for the Conv1D weights we need to transpose
                 assert sd_hf[k].shape[::-1] == sd[k].shape
