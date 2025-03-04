@@ -4,3 +4,7 @@ __pycache__/
 .env
 .pylintrc
 .venv
+runs/
+projects/results/
+logs/
+models/SFT_finetuned.pth

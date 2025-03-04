@@ -9,6 +9,8 @@ from collections import defaultdict
 import torch
 from torch.utils.data.dataloader import DataLoader
 from mingpt.utils import CfgNode as CN
+from tqdm import tqdm
+from IPython.display import clear_output
 
 def collate_fn(batch):
     # Find the max length in the batch
@@ -72,6 +74,7 @@ class Trainer:
         for callback in self.callbacks.get(onevent, []):
             callback(self)
 
+
     def run(self):
         model, config = self.model, self.config
 
@@ -93,19 +96,32 @@ class Trainer:
         self.iter_num = 0
         self.iter_time = time.time()
         data_iter = iter(train_loader)
-        while True:
 
-            # fetch the next batch (x, y) and re-init iterator if needed
+        print("Training started...")
+
+        progress_bar = tqdm(total=config.max_iters, desc="Training Progress", position=0, leave=True) if config.max_iters else None
+
+        while True:
             try:
                 batch = next(data_iter)
             except StopIteration:
                 data_iter = iter(train_loader)
                 batch = next(data_iter)
+
             batch = [t.to(self.device) for t in batch]
             x, y = batch
 
             # forward the model
             logits, self.loss = model(x, y)
+
+            # Print loss and step dynamically
+            clear_output(wait=True)  # Clears previous output for real-time updates
+            print(f"Step: {self.iter_num} / {config.max_iters if config.max_iters else '∞'}")
+            print(f"Loss: {self.loss.item():.6f}")
+
+            # Update progress bar
+            if progress_bar:
+                progress_bar.update(1)
 
             # backprop and update the parameters
             model.zero_grad(set_to_none=True)
@@ -113,12 +129,19 @@ class Trainer:
             torch.nn.utils.clip_grad_norm_(model.parameters(), config.grad_norm_clip)
             self.optimizer.step()
 
+            # Print learning rate
+            for param_group in self.optimizer.param_groups:
+                print(f"Learning Rate: {param_group['lr']:.6e}")
+
+            # Callbacks
             self.trigger_callbacks('on_batch_end')
             self.iter_num += 1
-            tnow = time.time()
-            self.iter_dt = tnow - self.iter_time
-            self.iter_time = tnow
 
             # termination conditions
             if config.max_iters is not None and self.iter_num >= config.max_iters:
                 break
+
+        if progress_bar:
+            progress_bar.close()
+
+        print("Training finished!")
