@@ -1,0 +1,5 @@
+BLEU Score: {'bleu': 0.015662972716624375, 'precisions': [0.1961280612942947, 0.025577672605790646, 0.005737356566085848, 0.002091145082203634], 'brevity_penalty': 1.0, 'length_ratio': 1.120110340599977, 'translation_length': 29236, 'reference_length': 26101}
+ROUGE Scores: {'rouge1': np.float64(0.19494766917842182), 'rouge2': np.float64(0.03047202468173356), 'rougeL': np.float64(0.12718054789206107), 'rougeLsum': np.float64(0.1413702219414072)}
+
+BLEU Score: {'bleu': 0.016065041007092322, 'precisions': [0.17384124188043598, 0.025421511084526525, 0.006362147129414454, 0.0023690240397685348], 'brevity_penalty': 1.0, 'length_ratio': 1.0439829891575036, 'translation_length': 27249, 'reference_length': 26101}
+ROUGE Scores: {'rouge1': np.float64(0.1876134801739155), 'rouge2': np.float64(0.03268949456536524), 'rougeL': np.float64(0.12894829893688217), 'rougeLsum': np.float64(0.1426488327931213)}
