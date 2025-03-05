@@ -259,17 +259,50 @@ class BPETokenizer:
 
     def __init__(self):
         self.encoder = get_encoder()
+        self.pad_token = "<|endoftext|>"  # Set pad_token to eos_token BR+Zak
+        self.pad_token_id = self.encoder.encoder[self.pad_token]  # Get ID of pad token BR+Zak
 
-    def __call__(self, text, return_tensors='pt'):
-        # PyTorch only; here because we want to match huggingface/transformers interface
+    def __call__(self, texts, return_tensors='pt', padding=True, truncation=True, max_length=512):
+        """
+        Tokenizes input text(s), optionally pads to the longest sequence in the batch or a fixed max length.
+        """
         assert return_tensors == 'pt'
-        # single string input for now, in the future potentially a list of strings
-        assert isinstance(text, str)
-        # encode and create a "batch dimension" of 1
-        idx = [self.encoder.encode(text)]
-        # wrap into PyTorch tensor
-        out = torch.tensor(idx, dtype=torch.long)
-        return out
+        
+        if isinstance(texts, str):
+            texts = [texts]  # Convert single string to list
+        
+        assert isinstance(texts, list), "Input must be a list of strings"
+
+        # Encode each text individually
+        encoded_texts = [self.encoder.encode(text) for text in texts]
+
+        if padding:
+            if truncation:
+                # Pad to max length and truncate if needed
+                padded_texts = [
+                    seq[:max_length] + [self.pad_token_id] * (max_length - min(len(seq), max_length))
+                    for seq in encoded_texts
+                ]
+            else:
+                # Padding to the longest sequence in the batch
+                max_len = max(len(seq) for seq in encoded_texts)
+                padded_texts = [
+                    seq + [self.pad_token_id] * (max_len - len(seq)) for seq in encoded_texts
+                ]
+        else:
+            padded_texts = encoded_texts
+
+        # Create attention mask: 1 for real tokens, 0 for padding tokens
+        attention_mask = [
+            [1] * len(seq) + [0] * (max_length - len(seq)) if len(seq) < max_length else [1] * max_length
+            for seq in padded_texts
+        ]
+
+        # Convert to PyTorch tensor
+        input_ids = torch.tensor(padded_texts, dtype=torch.long)
+        attention_mask = torch.tensor(attention_mask, dtype=torch.long)
+
+        return {'input_ids': input_ids, 'attention_mask': attention_mask}
 
     def decode(self, idx):
         # ensure a simple 1D tensor for now
@@ -280,7 +313,6 @@ class BPETokenizer:
 
 
 if __name__ == '__main__':
-
     # here is an encoding example
     text = "Hello!! I'm Andrej Karpathy. It's 2022. w00t :D 🤗"
     e = get_encoder()

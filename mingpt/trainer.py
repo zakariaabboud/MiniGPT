@@ -12,19 +12,6 @@ from mingpt.utils import CfgNode as CN
 from tqdm import tqdm
 from IPython.display import clear_output
 
-def collate_fn(batch):
-    # Find the max length in the batch
-    max_len = max(len(x) for x, y in batch)
-
-    # Pad each sequence to the max length
-    x_batch = [torch.cat([x, torch.zeros(max_len - len(x), dtype=torch.long)]) for x, y in batch]
-    y_batch = [torch.cat([y, torch.zeros(max_len - len(y), dtype=torch.long)]) for x, y in batch]
-    
-    # Stack the sequences into tensors
-    x_batch = torch.stack(x_batch)
-    y_batch = torch.stack(y_batch)
-    
-    return x_batch, y_batch
 class Trainer:
 
     @staticmethod
@@ -41,7 +28,7 @@ class Trainer:
         C.betas = (0.9, 0.95)
         C.weight_decay = 0.1 # only applied on matmul weights
         C.grad_norm_clip = 1.0
-        C.collate_fn=collate_fn
+        C.collate_fn=None
         return C
 
     def __init__(self, config, model, train_dataset):
