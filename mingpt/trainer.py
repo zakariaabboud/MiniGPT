@@ -114,10 +114,10 @@ class Trainer:
             # forward the model
             logits, self.loss = model(x, y)
 
-            # Print loss and step dynamically
-            clear_output(wait=True)  # Clears previous output for real-time updates
-            print(f"Step: {self.iter_num} / {config.max_iters if config.max_iters else '∞'}")
-            print(f"Loss: {self.loss.item():.6f}")
+            # Print loss each 100 iterations
+            if self.iter_num % 1000 == 0:
+                print(f"Iteration {self.iter_num}: loss {self.loss.item()}")
+                clear_output(wait=True)
 
             # Update progress bar
             if progress_bar:
@@ -127,11 +127,7 @@ class Trainer:
             model.zero_grad(set_to_none=True)
             self.loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), config.grad_norm_clip)
-            self.optimizer.step()
-
-            # Print learning rate
-            for param_group in self.optimizer.param_groups:
-                print(f"Learning Rate: {param_group['lr']:.6e}")
+            self.optimizer.step() 
 
             # Callbacks
             self.trigger_callbacks('on_batch_end')
