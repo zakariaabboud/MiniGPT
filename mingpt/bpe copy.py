@@ -262,11 +262,12 @@ class BPETokenizer:
         self.pad_token = "<|endoftext|>"  # Set pad_token to eos_token BR+Zak
         self.pad_token_id = self.encoder.encoder[self.pad_token]  # Get ID of pad token BR+Zak
 
-    def __call__(self, texts, return_tensors='pt', padding=True, truncation=False, max_length=512):
-        # PyTorch only; here because we want to match huggingface/transformers interface
+    def __call__(self, texts, return_tensors='pt', padding=True, truncation=True, max_length=512):
+        """
+        Tokenizes input text(s), optionally pads to the longest sequence in the batch or a fixed max length.
+        """
         assert return_tensors == 'pt'
         
-        # Bra + Zak
         if isinstance(texts, str):
             texts = [texts]  # Convert single string to list
         
@@ -291,10 +292,17 @@ class BPETokenizer:
         else:
             padded_texts = encoded_texts
 
+        # Create attention mask: 1 for real tokens, 0 for padding tokens
+        attention_mask = [
+            [1] * len(seq) + [0] * (max_length - len(seq)) if len(seq) < max_length else [1] * max_length
+            for seq in padded_texts
+        ]
+
         # Convert to PyTorch tensor
         input_ids = torch.tensor(padded_texts, dtype=torch.long)
+        attention_mask = torch.tensor(attention_mask, dtype=torch.long)
 
-        return input_ids
+        return {'input_ids': input_ids, 'attention_mask': attention_mask}
 
     def decode(self, idx):
         # ensure a simple 1D tensor for now
@@ -305,7 +313,6 @@ class BPETokenizer:
 
 
 if __name__ == '__main__':
-
     # here is an encoding example
     text = "Hello!! I'm Andrej Karpathy. It's 2022. w00t :D 🤗"
     e = get_encoder()

@@ -1,16 +1,11 @@
-"""
-Simple training loop; Boilerplate that could apply to any arbitrary neural network,
-so nothing in this file really has anything to do with GPT specifically.
-"""
-
 import time
 from collections import defaultdict
 
 import torch
 from torch.utils.data.dataloader import DataLoader
 from mingpt.utils import CfgNode as CN
-from IPython.display import clear_output
 from tqdm import tqdm
+from IPython.display import clear_output
 
 class Trainer:
 
@@ -19,7 +14,7 @@ class Trainer:
         C = CN()
         # device to train on
         C.device = 'auto'
-        # dataloder parameters
+        # dataloader parameters
         C.num_workers = 4
         # optimizer parameters
         C.max_iters = None
@@ -77,33 +72,62 @@ class Trainer:
             num_workers=config.num_workers,
             collate_fn=config.collate_fn
         )
+        
+        def test_dataloader(train_loader):
+            print("Testing DataLoader...")
+
+            # Test iterating over the DataLoader
+            try:
+                # Fetch a single batch
+                batch = next(iter(train_loader))
+                print(f"Batch Type: {type(batch)}")
+                
+                if isinstance(batch, tuple) and len(batch) == 2:
+                    x, y = batch
+                    print(f"Input shape: {x.shape}, Target shape: {y.shape}")
+                elif isinstance(batch, dict):
+                    print(f"Batch Keys: {batch.keys()}")
+                    # Check if the batch has the expected keys
+                    print(f"Input IDs sample: {batch['input_ids'][:2] if 'input_ids' in batch else 'Not found'}")
+                    print(f"Labels sample: {batch['labels'][:2] if 'labels' in batch else 'Not found'}")
+                else:
+                    print(f"Batch structure: {batch}")
+                    
+            except Exception as e:
+                print(f"Error while testing DataLoader: {e}")
+        
+        test_dataloader(train_loader)
 
         model.train()
         self.iter_num = 0
         self.iter_time = time.time()
         data_iter = iter(train_loader)
-        
-        # Zak + Bra
+
         print("Training started...")
 
         progress_bar = tqdm(total=config.max_iters, desc="Training Progress", position=0, leave=True) if config.max_iters else None
-        ####
 
         while True:
-
-            # fetch the next batch (x, y) and re-init iterator if needed
             try:
                 batch = next(data_iter)
             except StopIteration:
                 data_iter = iter(train_loader)
                 batch = next(data_iter)
-            batch = [t.to(self.device) for t in batch]
-            x, y = batch
+
+            # Process batch to handle both tuple and dictionary formats
+            if isinstance(batch, tuple) and len(batch) == 2:
+                x, y = batch
+                x = x.to(self.device)
+                y = y.to(self.device)
+            else:
+                # If it's a dictionary or other format, convert to device first
+                batch = {k: v.to(self.device) for k, v in batch.items()} if isinstance(batch, dict) else batch
+                # In your specific case, you'll need to handle how to get x and y from batch
 
             # forward the model
             logits, self.loss = model(x, y)
-            
-            # Bra+Zak Print loss and step dynamically
+
+            # Print loss and step dynamically
             clear_output(wait=True)  # Clears previous output for real-time updates
             print(f"Step: {self.iter_num} / {config.max_iters if config.max_iters else '∞'}")
             print(f"Loss: {self.loss.item():.6f}")
@@ -129,7 +153,7 @@ class Trainer:
             # termination conditions
             if config.max_iters is not None and self.iter_num >= config.max_iters:
                 break
-        
+
         if progress_bar:
             progress_bar.close()
 
