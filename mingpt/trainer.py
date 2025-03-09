@@ -102,19 +102,11 @@ class Trainer:
 
             # forward the model
             logits, self.loss = model(x, y)
-<<<<<<< HEAD
-            
-            # Bra+Zak Print loss and step dynamically
-            clear_output(wait=True)  # Clears previous output for real-time updates
-            print(f"Step: {self.iter_num} / {config.max_iters if config.max_iters else '∞'}")
-            print(f"Loss: {self.loss.item():.6f}")
-=======
 
             # Print loss each 100 iterations
             if self.iter_num % 1000 == 0:
                 print(f"Iteration {self.iter_num}: loss {self.loss.item()}")
                 clear_output(wait=True)
->>>>>>> 676680bcf7203cc5c968bd991997140cd50986e7
 
             # Update progress bar
             if progress_bar:
