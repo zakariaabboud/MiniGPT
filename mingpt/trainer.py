@@ -31,6 +31,7 @@ class Trainer:
         C.collate_fn = None
         # validation parameters
         C.eval_interval = 1000  # Run validation every 1000 iterations
+        C.log_iter = 100
         return C
 
     def __init__(self, config, model, train_dataset, val_dataset=None):
@@ -118,9 +119,11 @@ class Trainer:
         self.iter_time = time.time()
         data_iter = iter(train_loader)
 
+        # Zak + Bra
         print("Training started...")
 
         progress_bar = tqdm(total=config.max_iters, desc="Training Progress", position=0, leave=True) if config.max_iters else None
+        ####
 
         while True:
 
@@ -136,18 +139,18 @@ class Trainer:
             # forward the model
             logits, self.loss = model(x, y)
 
-            # Print loss every 1000 iterations
-            if self.iter_num % 1000 == 0:
+            # Print loss each 100 iterations
+            if self.iter_num % config.log_iter == 0:
                 print(f"Iteration {self.iter_num}: loss {self.loss.item()}")
                 clear_output(wait=True)
-
-            # Run validation every `eval_interval` iterations
-            if self.val_dataset and self.iter_num % config.eval_interval == 0:
-                self.validate()
 
             # Update progress bar
             if progress_bar:
                 progress_bar.update(1)
+
+            # Run validation every `eval_interval` iterations
+            if self.val_dataset and self.iter_num % config.eval_interval == 0:
+                self.validate()
 
             # backprop and update the parameters
             model.zero_grad(set_to_none=True)
