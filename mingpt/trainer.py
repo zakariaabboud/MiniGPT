@@ -54,6 +54,7 @@ class Trainer:
         self.iter_num = 0
         self.iter_time = 0.0
         self.iter_dt = 0.0
+        self.val_losses = []
 
     def add_callback(self, onevent: str, callback):
         self.callbacks[onevent].append(callback)
@@ -93,6 +94,7 @@ class Trainer:
             num_batches += 1
 
         avg_loss = total_loss / num_batches
+        self.val_losses.append(avg_loss)
         print(f"Validation Loss: {avg_loss:.4f}")
 
         self.model.train()  # Switch back to training mode
