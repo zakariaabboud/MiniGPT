@@ -19,7 +19,7 @@ class Trainer:
         C = CN()
         # device to train on
         C.device = 'auto'
-        # dataloder parameters
+        # dataloader parameters
         C.num_workers = 4
         # optimizer parameters
         C.max_iters = None
@@ -29,13 +29,16 @@ class Trainer:
         C.weight_decay = 0.1 # only applied on matmul weights
         C.grad_norm_clip = 1.0
         C.collate_fn = None
+        # validation parameters
+        C.eval_interval = 1000  # Run validation every 1000 iterations
         return C
 
-    def __init__(self, config, model, train_dataset):
+    def __init__(self, config, model, train_dataset, val_dataset=None):
         self.config = config
         self.model = model
         self.optimizer = None
         self.train_dataset = train_dataset
+        self.val_dataset = val_dataset  # Added validation dataset
         self.callbacks = defaultdict(list)
 
         # determine the device we'll train on
@@ -44,7 +47,7 @@ class Trainer:
         else:
             self.device = config.device
         self.model = self.model.to(self.device)
-        print("running on device", self.device)
+        print("Running on device", self.device)
 
         # variables that will be assigned to trainer class later for logging and etc
         self.iter_num = 0
@@ -60,6 +63,38 @@ class Trainer:
     def trigger_callbacks(self, onevent: str):
         for callback in self.callbacks.get(onevent, []):
             callback(self)
+
+    @torch.no_grad()
+    def validate(self):
+        """Runs validation and computes average loss."""
+        if self.val_dataset is None:
+            return  # No validation dataset provided
+
+        self.model.eval()
+        val_loader = DataLoader(
+            self.val_dataset,
+            shuffle=False,
+            pin_memory=True,
+            batch_size=self.config.batch_size,
+            num_workers=self.config.num_workers,
+            collate_fn=self.config.collate_fn
+        )
+
+        total_loss = 0.0
+        num_batches = 0
+
+        for batch in val_loader:
+            batch = [t.to(self.device) for t in batch]
+            x, y = batch
+
+            logits, loss = self.model(x, y)
+            total_loss += loss.item()
+            num_batches += 1
+
+        avg_loss = total_loss / num_batches
+        print(f"Validation Loss: {avg_loss:.4f}")
+
+        self.model.train()  # Switch back to training mode
 
     def run(self):
         model, config = self.model, self.config
@@ -82,12 +117,10 @@ class Trainer:
         self.iter_num = 0
         self.iter_time = time.time()
         data_iter = iter(train_loader)
-        
-        # Zak + Bra
+
         print("Training started...")
 
         progress_bar = tqdm(total=config.max_iters, desc="Training Progress", position=0, leave=True) if config.max_iters else None
-        ####
 
         while True:
 
@@ -103,10 +136,14 @@ class Trainer:
             # forward the model
             logits, self.loss = model(x, y)
 
-            # Print loss each 100 iterations
+            # Print loss every 1000 iterations
             if self.iter_num % 1000 == 0:
                 print(f"Iteration {self.iter_num}: loss {self.loss.item()}")
                 clear_output(wait=True)
+
+            # Run validation every `eval_interval` iterations
+            if self.val_dataset and self.iter_num % config.eval_interval == 0:
+                self.validate()
 
             # Update progress bar
             if progress_bar:
@@ -116,7 +153,7 @@ class Trainer:
             model.zero_grad(set_to_none=True)
             self.loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), config.grad_norm_clip)
-            self.optimizer.step() 
+            self.optimizer.step()
 
             # Callbacks
             self.trigger_callbacks('on_batch_end')
@@ -125,7 +162,7 @@ class Trainer:
             # termination conditions
             if config.max_iters is not None and self.iter_num >= config.max_iters:
                 break
-        
+
         if progress_bar:
             progress_bar.close()
 
