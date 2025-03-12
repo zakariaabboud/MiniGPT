@@ -7,4 +7,4 @@ __pycache__/
 runs/
 projects/results/
 logs/
-models/SFT_finetuned.pth
+saved_model/

@@ -9,6 +9,7 @@ https://github.com/huggingface/transformers/blob/main/src/transformers/models/gp
 """
 
 import math
+import os
 
 import torch
 import torch.nn as nn
@@ -117,6 +118,7 @@ class GPT(nn.Module):
         assert config.vocab_size is not None
         assert config.block_size is not None
         self.block_size = config.block_size
+        self.config = config
 
         type_given = config.model_type is not None
         params_given = all([config.n_layer is not None, config.n_head is not None, config.n_embd is not None])
@@ -308,3 +310,51 @@ class GPT(nn.Module):
             idx = torch.cat((idx, idx_next), dim=1)
 
         return idx
+    
+    def save(self, save_path):
+        """
+        Save the model weights and configuration to the specified path.
+
+        Args:
+            save_path (str): Path to save the model.
+        """
+        os.makedirs(save_path, exist_ok=True)
+        
+        # Save model weights
+        torch.save(self.state_dict(), os.path.join(save_path, "model.pth"))
+
+        print(f"Model saved to {save_path}")
+
+    def load_model_from_saved(model_type, saved_model_path):
+        # Create a from-scratch initialized minGPT model
+        config = GPT.get_default_config()
+        config.model_type = model_type
+        config.vocab_size = 50257  # OpenAI's model vocabulary
+        config.block_size = 1024  # OpenAI's model block_size
+        model = GPT(config)
+        sd = model.state_dict()
+
+        # Load the saved model state_dict (instead of huggingface pre-trained model)
+        saved_model_sd = torch.load(os.path.join(saved_model_path, 'model.pth'))
+
+        # Ensure keys in the saved state_dict are properly aligned and match
+        keys = [k for k in saved_model_sd if not k.endswith('attn.masked_bias')]  # Ignore these
+        transposed = ['attn.c_attn.weight', 'attn.c_proj.weight', 'mlp.c_fc.weight', 'mlp.c_proj.weight']
+
+        # Special treatment for the Conv1D weights we need to transpose
+        for k in keys:
+            if any(k.endswith(w) for w in transposed):
+                # Check that the shapes are aligned for transposed weights
+                assert saved_model_sd[k].shape == sd[k].shape
+                with torch.no_grad():
+                    sd[k].copy_(saved_model_sd[k])  # Transpose the weight and copy it
+            else:
+                # Vanilla copy over the other parameters
+                assert saved_model_sd[k].shape == sd[k].shape
+                with torch.no_grad():
+                    sd[k].copy_(saved_model_sd[k])  # Direct copy for the other weights
+
+        return model
+
+
+
